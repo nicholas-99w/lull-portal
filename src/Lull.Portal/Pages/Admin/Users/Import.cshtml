@@ -1,0 +1,63 @@
+@page
+@model ImportUsersModel
+@{ ViewData["Title"] = "Import users"; }
+<a class="back" href="/Admin/Users">← Users</a>
+<h1>Import parents from CSV</h1>
+<partial name="_Errors" model="Model.Errors" />
+@if (Model.Applied)
+{
+    <div class="notice">Imported: @Model.Count("Create") created, @Model.Count("Update") updated, @Model.Count("Unchanged") unchanged.</div>
+    @if (Model.Count("Create") > 0)
+    {
+        <div class="card">
+            <h2>Setup codes for new parents</h2>
+            <p class="small"><strong>Shown only once.</strong> Download them now for a mail merge: each parent needs their email and code to set up their password. You can issue a new code for anyone later.</p>
+            <p><a class="button" download="lull-setup-codes.csv" href="data:text/csv;charset=utf-8;base64,@Model.CodesCsvBase64">Download setup codes (CSV)</a></p>
+        </div>
+    }
+}
+else if (Model.Results.Count > 0)
+{
+    <div class="card">
+        <h2>Preview</h2>
+        <p>@Model.Count("Create") to create, @Model.Count("Update") to update, @Model.Count("Unchanged") unchanged@(Model.Count("Skip") > 0 ? $", {Model.Count("Skip")} skipped" : ""). Parents not in the file are left alone. Nothing has changed yet.</p>
+        <form method="post" asp-page-handler="Apply">
+            <textarea name="csv" hidden>@Model.Csv</textarea>
+            <button type="submit" @(Model.Errors.Count > 0 ? "disabled" : "")>Import</button>
+            @if (Model.Errors.Count > 0) { <span class="small muted">Fix the problems above and upload again.</span> }
+        </form>
+    </div>
+}
+@if (Model.Results.Count > 0)
+{
+    <div class="table-wrap cards-on-phone" role="region" aria-label="What the import does" tabindex="0"><table>
+        <thead><tr><th scope="col">Line</th><th scope="col">Action</th><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Students</th><th scope="col">Details</th></tr></thead>
+        <tbody>
+        @foreach (var r in Model.Results)
+        {
+            <tr>
+                <td data-label="Line">@r.Row.Line</td>
+                <td data-label="Action">@r.Action</td>
+                <td data-label="Name">@r.Row.Name</td>
+                <td data-label="Email">@r.Row.Email</td>
+                <td data-label="Students">@string.Join(", ", r.Row.Students)</td>
+                <td class="small" data-label="Details">@r.Detail</td>
+            </tr>
+        }
+        </tbody>
+    </table></div>
+}
+@if (!Model.Applied)
+{
+    <form method="post" enctype="multipart/form-data" class="card mt-16">
+        <h2>Upload</h2>
+        <p class="small">A CSV file with the headers <code>parentName,parentMail,studentUsernames</code>. Put several student usernames in double quotes, separated by commas:</p>
+        <pre class="small sample">parentName,parentMail,studentUsernames
+Jane Smith,jane.smith@example.com,"jsmith26,asmith29"
+Sam Lee,sam.lee@example.com,"slee27"</pre>
+        <p class="small muted">Each listed parent's name and students are replaced by the file's. New parents get a setup code. You'll see a preview before anything changes.</p>
+        <label for="file">CSV file</label>
+        <input type="file" id="file" name="file" accept=".csv,text/csv" aria-describedby="@(Model.Errors.Count > 0 ? "errors" : null)" required>
+        <p><button type="submit">Preview</button></p>
+    </form>
+}

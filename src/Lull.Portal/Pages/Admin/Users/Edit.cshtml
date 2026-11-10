@@ -1,0 +1,115 @@
+@page "{id:guid?}"
+@model EditUserModel
+@{
+    ViewData["Title"] = Model.Existing is null ? "New user" : Model.Existing.DisplayName;
+    // The fields the errors above the form can be about.
+    var err = Model.Errors.Count > 0 ? "errors" : null;
+    var bad = Model.Errors.Count > 0 ? "true" : null;
+}
+<a class="back" href="/Admin/Users">← Users</a>
+<h1>@(Model.Existing is null ? "New user" : Model.Existing.DisplayName)
+    @if (Model.Existing?.IsOwner == true) { <span class="pill ok va-middle">Owner</span> }</h1>
+@if (Model.Existing?.IsOwner == true)
+{
+    <p class="small muted">The owner is the admin who set up the portal. This account is always an admin, can't be deleted, and only its owner can change it or reset its password.</p>
+}
+@if (Model.Existing?.IsEntra == true)
+{
+    <p class="small muted">Signs in with Microsoft (Entra ID). Their name, email, role and students are updated from Entra each time
+        they sign in: change them in Entra.</p>
+}
+@if (Model.IssuedCode is { } issued) { <partial name="_SetupCode" model="issued" /> }
+@if (Model.Notice is { } n) { <div class="notice">@n</div> }
+<partial name="_Errors" model="Model.Errors" />
+<form method="post" class="card">
+    <fieldset @(Model.ReadOnly ? "disabled" : "")>
+    <label for="name">Name</label>
+    <input type="text" id="name" name="name" value="@Model.Name" aria-describedby="@(err)" aria-invalid="@(bad)" required>
+    <label for="email">Email (their username)</label>
+    <input type="text" id="email" name="email" value="@Model.Email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="@(err)" aria-invalid="@(bad)" required>
+    @if (Model.Existing?.IsOwner != true)
+    {
+    <fieldset class="field-group">
+        <legend>Role</legend>
+        <div class="row">
+            <label class="toggle plain"><input type="radio" name="role" value="Parent" @(Model.Role == Roles.Parent ? "checked" : "")> Parent</label>
+            <label class="toggle plain"><input type="radio" name="role" value="Admin" @(Model.Role == Roles.Admin ? "checked" : "")> Admin (manages every Mac and user)</label>
+        </div>
+    </fieldset>
+    }
+    @* Only parents have students. Hidden with no script, like other choices that depend on one (site.css). *@
+    <div class="students-field">
+    <label for="students">Student usernames (parents)</label>
+    <input type="text" id="students" name="students" value="@Model.Students" placeholder="jsmith26, asmith29" aria-describedby="students-hint @(err)" aria-invalid="@(bad)">
+    <p class="small muted" id="students-hint">School usernames, separated by commas. The parent sees the Macs these students use.</p>
+    </div>
+    <p><button type="submit">@(Model.Existing is null ? "Create and get setup code" : "Save")</button></p>
+    </fieldset>
+</form>
+@if (Model.Existing is { IsEntra: true } entra)
+{
+    <div class="card">
+        <h2>Sign-in</h2>
+        <p class="small">Microsoft (Entra ID). Last sign-in: @(entra.LastLoginAt is { } entraSignIn ? DisplayDate.DateTime(entraSignIn) : "never").</p>
+    </div>
+    <form method="post" asp-page-handler="Delete" class="danger-zone">
+        <h3>Delete user</h3>
+        <p>They're signed out at once. If they're still assigned to the portal in Entra, their next sign-in creates the account again;
+            to stop them signing in, remove them from the portal's app in Entra.</p>
+        <label class="toggle plain"><input type="checkbox" name="confirm" value="true" required> Delete @entra.Email</label>
+        <button type="submit" class="danger">Delete user</button>
+    </form>
+}
+else if (Model.Existing is { } u && !Model.ReadOnly)
+{
+    <div class="card">
+        <h2>Sign-in</h2>
+        <p class="small">
+            @if (u.HasPassword) { <span>Password set. Last sign-in: @(u.LastLoginAt is { } signedIn ? DisplayDate.DateTime(signedIn) : "never").</span> }
+            else if (u.SetupCodeValid(Model.Now)) { <span>Waiting for first sign-in; setup code expires @DisplayDate.Date(u.SetupCodeExpires!.Value).</span> }
+            else { <span>The setup code has expired. Issue a new one.</span> }
+            @if (u.IsLocked(Model.Now)) { <span class="pill bad">Locked after too many attempts</span> }
+        </p>
+        @if (u.HasTwoFactor)
+        {
+            <p class="small">Two-step sign-in on since @DisplayDate.Date(u.TwoFactorSince!.Value).</p>
+        }
+        else if (u.NeedsTwoFactorSetup)
+        {
+            <p class="small">No two-step sign-in yet: they set it up at their next sign-in, before anything else.</p>
+        }
+        <div class="row">
+            @if (u.HasPassword)
+            {
+                @* It clears their password and signs them out everywhere, so a second step. *@
+                <details class="confirm">
+                    <summary class="button secondary">Reset password…</summary>
+                    <form method="post" asp-page-handler="Code" class="confirm-panel">
+                        <span class="small">Clear @(u.DisplayName)'s password and issue a new setup code?</span>
+                        <button type="submit" class="danger">Yes, reset password</button>
+                    </form>
+                </details>
+            }
+            else
+            {
+                <form method="post" asp-page-handler="Code" class="m-0">
+                    <button type="submit" class="secondary">New setup code</button>
+                </form>
+            }
+            @if (u.IsLocked(Model.Now))
+            {
+                <form method="post" asp-page-handler="Unlock" class="m-0"><button type="submit" class="secondary">Unlock</button></form>
+            }
+        </div>
+        <p class="small muted">A new setup code clears their password (and two-step sign-in) and signs them out everywhere; they set a new password with the code. Use it for a lost phone too.</p>
+    </div>
+    @if (!u.IsOwner)
+    {
+    <form method="post" asp-page-handler="Delete" class="danger-zone">
+        <h3>Delete user</h3>
+        <p>They can no longer sign in, and are signed out at once. Their children's Macs aren't affected.</p>
+        <label class="toggle plain"><input type="checkbox" name="confirm" value="true" required> Delete @u.Email</label>
+        <button type="submit" class="danger">Delete user</button>
+    </form>
+    }
+}

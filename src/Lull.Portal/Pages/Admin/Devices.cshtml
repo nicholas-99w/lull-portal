@@ -1,0 +1,41 @@
+@page
+@model DevicesModel
+@{
+    ViewData["Title"] = "Devices";
+    ViewData["Wide"] = true;
+}
+<h1>Devices</h1>
+<partial name="_Search" model='("Search devices", "Search by name, username or serial", Model.Query, Model.FilterKey)' />
+<partial name="_Filters" model="Model.Filters" />
+@if (Model.Rows.Count == 0 && Model.Query is not { Length: > 0 } && Model.FilterKey is null)
+{
+    <div class="card"><p>No Macs have registered yet. They appear after Lull is installed and the enrolment secret is deployed.</p></div>
+}
+else if (Model.Rows.Count == 0 && Model.Query is { Length: > 0 })
+{
+    <div class="card"><p>No Macs match “@Model.Query”.</p></div>
+}
+else if (Model.Rows.Count == 0)
+{
+    <div class="card"><p>No Macs in this view.</p></div>
+}
+else
+{
+    <div class="table-wrap cards-on-phone" role="region" aria-label="Devices" tabindex="0"><table>
+        <thead><tr><th scope="col">Primary user</th><th scope="col">Serial</th><th scope="col">Status</th><th scope="col">Next</th><th scope="col">Schedule</th><th scope="col">Last seen</th></tr></thead>
+        <tbody>
+        @foreach (var r in Model.Rows)
+        {
+            <tr>
+                <td class="card-title"><a href="/Device/@r.Device.Id">@(r.Device.IsDeregistered ? "(de-registered)" : r.Device.StudentNameAndUsername ?? "(not pinned yet)")</a></td>
+                <td data-label="Serial">@r.Device.SerialNumber</td>
+                <td data-label="Status">@if (r.Device.IsDeregistered) { <span class="pill bad">De-registered</span> } else { <span class="status"><span class="dot @r.Tone" aria-hidden="true"></span>@r.State</span> }</td>
+                <td data-label="Next">@r.Next</td>
+                <td data-label="Schedule">@r.Schedule</td>
+                <td data-label="Last seen">@r.Status.LastCheckIn @if (r.Status.Stale) { <span class="pill bad">Offline?</span> }</td>
+            </tr>
+        }
+        </tbody>
+    </table></div>
+    <partial name="_Pager" model="Model.Pager" />
+}

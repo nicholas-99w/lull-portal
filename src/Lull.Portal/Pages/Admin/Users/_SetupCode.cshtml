@@ -1,0 +1,7 @@
+@model (string Email, string Code)
+<div class="notice">
+    <p class="m-0 mb-6"><strong>One-time setup code for @Model.Email:</strong></p>
+    @* admin.js shows the button where the browser can copy. *@
+    <p class="row m-0 mb-6"><code class="big">@Model.Code</code> <button type="button" class="secondary" data-copy="@Model.Code" hidden>Copy</button></p>
+    <p class="small m-0">Give this to them (it's shown only once). They go to the portal, choose <em>Set up your password</em>, and enter their email and this code. It expires in 30 days; you can issue a new one at any time.</p>
+</div>

@@ -1,0 +1,113 @@
+@page "{id:guid}"
+@model DeviceModel
+@{
+    var student = Model.IsAdmin ? Model.Device.StudentNameAndUsername : Model.Device.StudentName;
+    ViewData["Title"] = student ?? Model.Device.SerialNumber;
+    ViewData["Wide"] = Model.IsAdmin;
+    var s = Model.Device.Settings;
+}
+<a class="back" href="@(Model.IsAdmin ? "/Admin/Devices" : "/")">← @(Model.IsAdmin ? "Devices" : "Your children")</a>
+<h1 class="mb-0">@(student ?? "Unassigned Mac")</h1>
+@* Parents hardly need it, but IT may ask: at the foot of the page for them. *@
+@if (Model.IsAdmin || Model.Device.IsDeregistered) { <p class="small muted mt-0">Serial number @Model.Device.SerialNumber</p> }
+
+@if (Model.Device.IsDeregistered)
+{
+    @if (Model.Notice is { } n) { <div class="notice">@n</div> }
+    <div class="card">
+        <h2>De-registered</h2>
+        <p>IT de-registered this Mac on @DisplayDate.DateTime(Model.Device.DeregisteredAt!.Value). It no longer takes settings from the portal and parents can't see it.</p>
+        <p class="muted">At its next check-in the Mac drops its portal settings (including any lock-down) and its enrolment, and goes back to its local configuration: the Jamf profile (plist) settings. To manage it from the portal again, enrol it again: run the portal enrolment policy (<code>portal-enrol.sh</code>) on the Mac. It then appears here as a new Mac with the school defaults.</p>
+    </div>
+}
+else
+{
+@if (Model.Notice is { } notice) { <div class="notice">@notice</div> }
+
+@* IT's tools sit beside the rest on a wide screen, not under it. *@
+<div class="@(Model.IsAdmin ? "mac-columns" : null)" data-live-url="/Device/@Model.Device.Id?handler=Live">
+<div>
+@* The status and the controls update while the page is open (live.js, DeviceModel.OnGetLive). *@
+<div class="card" data-live="status">
+<partial name="_DeviceStatus" model="Model" />
+</div>
+
+<div class="card" id="lock" data-live="controls">
+<partial name="_DeviceControls" model="Model" />
+</div>
+
+<div class="card">
+    <h2>Schedule</h2>
+    <a class="row-link" href="/Device/@Model.Device.Id/Schedule">
+        <span class="row-text"><span>School weeks</span><span class="small muted">@Model.WeeksSummary</span></span>
+        <span aria-hidden="true">›</span>
+    </a>
+    <a class="row-link" href="/Device/@Model.Device.Id/Schedule/Holidays">
+        <span class="row-text"><span>School holidays</span><span class="small muted">@Model.HolidaySummary</span></span>
+        <span aria-hidden="true">›</span>
+    </a>
+</div>
+
+@if (!Model.IsAdmin) { <p class="small muted">Serial number @Model.Device.SerialNumber</p> }
+</div>
+
+@if (Model.IsAdmin)
+{
+    <div class="card">
+        <h2>IT tools</h2>
+        <partial name="_Errors" model="Model.Errors" />
+        <dl class="facts small">
+            <dt>Registered</dt><dd><time data-local datetime="@DisplayDate.Iso(Model.Device.RegisteredAt)">@DisplayDate.DateTime(Model.Device.RegisteredAt)</time></dd>
+            <dt>Hardware UUID</dt><dd>@Model.Device.HardwareUuid</dd>
+            @if (Model.Device.LastReport is { } r)
+            {
+                <dt>Lull</dt><dd>@r.Version@(r.DebugBuild ? " (DEBUG build)" : "")</dd>
+                <dt>Time</dt><dd>@r.TimeStatus</dd>
+            }
+        </dl>
+        <form method="post" asp-page-handler="PrimaryUser" class="row">
+            <label for="username" class="m-0">Primary user</label>
+            <input type="text" id="username" name="username" value="@Model.Device.PrimaryUsername" class="narrow" aria-describedby="primary-hint">
+            <button type="submit" class="secondary">Change</button>
+        </form>
+        <p class="small muted" id="primary-hint">Pinned automatically from the first student who signs in. Parents see this Mac if this user is one of their children. The name shown is the account's full name on the Mac. Leave empty to re-pin at the next check-in.</p>
+        @if (Model.Device.RegisterRefusedAt is { } refused && !Model.Device.ResetAllowed)
+        {
+            <p class="small"><span class="pill warn">Trying to register</span>
+                A Mac with this serial has been trying to register since @DisplayDate.DateTime(refused), and is refused
+                because the serial is already registered to a different hardware UUID. If the Mac was repaired (for example its logic board
+                replaced) and this is expected, reset it.</p>
+        }
+        @if (Model.Device.ResetAllowed)
+        {
+            <p class="small"><button type="button" class="secondary" disabled>Reset device</button></p>
+            <p class="small muted">Reset: this serial may register once more, keeping its settings and primary user. The old token keeps working until then.</p>
+        }
+        else
+        {
+            @* It lets different hardware take this Mac's place, so a second step. *@
+            <details class="confirm">
+                <summary class="button secondary">Reset device…</summary>
+                <form method="post" asp-page-handler="Reset" class="confirm-panel">
+                    <span class="small">Let this serial register once more, even from different hardware?</span>
+                    <button type="submit" class="danger">Yes, reset device</button>
+                </form>
+            </details>
+            <p class="small muted">Lets this serial register once more, even from different hardware, keeping its settings and primary user. Not needed after a reinstall: the same Mac registers again by itself, starting afresh.</p>
+        }
+        <form method="post" asp-page-handler="Deregister" class="danger-zone">
+            <h3>De-register device</h3>
+            <p><strong>Warning:</strong> this removes the Mac from the portal. At its next check-in it drops its portal settings
+                (including any lock-down) and falls back to its <strong>local configuration</strong>: the Jamf profile (plist) settings.
+                Parents will no longer see it. To manage it remotely again it must be <strong>re-registered</strong> with the portal by
+                running the enrolment policy (<code>portal-enrol.sh</code>) on the Mac again.</p>
+            <label class="toggle plain">
+                <input type="checkbox" name="confirm" value="true" required> I understand this Mac will stop being managed from the portal
+            </label>
+            <button type="submit" class="danger">De-register device</button>
+        </form>
+    </div>
+}
+</div>
+}
+<script src="~/live.js" asp-append-version="true" defer></script>

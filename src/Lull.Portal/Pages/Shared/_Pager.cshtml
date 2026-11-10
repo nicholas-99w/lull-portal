@@ -1,0 +1,10 @@
+@model Pager
+<nav class="pager small" aria-label="Pages">
+    <span class="muted">@(Model.Total == 0 ? $"No {Model.Noun}." : $"{Model.From}–{Model.To} of {Model.Total:N0} {Model.Noun}.")</span>
+    @if (Model.Pages > 1)
+    {
+        @if (Model.Number > 1) { <a href="@Model.Link(Model.Number - 1)">← Previous</a> }
+        <span>Page @Model.Number of @Model.Pages</span>
+        @if (Model.Number < Model.Pages) { <a href="@Model.Link(Model.Number + 1)">Next →</a> }
+    }
+</nav>

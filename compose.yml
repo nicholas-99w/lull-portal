@@ -1,0 +1,158 @@
+# Lull portal + Postgres. To try it:  cp .env.example .env && docker compose up -d --wait
+# Then open http://localhost:8080: the first visitor creates the owner (first admin) account.
+# To run your own changes, build them under another name (so the release's name
+# keeps meaning the published image):
+#   LULL_PORTAL_IMAGE=lull-portal:dev docker compose up -d --build --wait
+
+# The project name prefixes the volume names (portal_db-data holds the database).
+# Fixed here so it doesn't follow the folder name: this file was first deployed
+# from a folder called Portal, and cloning into a differently named folder must
+# keep using the same volumes, not start an empty database. Never change it on
+# an existing server.
+name: portal
+
+# The portal's image: the release this copy is checked out at, published by
+# .github/workflows/publish.yml. Compose pulls it (or builds it from this folder
+# if the pull fails). Each release PR sets the version here to its own, and CI
+# checks it matches the changelog's newest release. LULL_PORTAL_IMAGE overrides
+# it, for a local build (./update.sh --main, CI).
+x-portal-image: &portal-image "${LULL_PORTAL_IMAGE:-ghcr.io/nicholas-99w/lull-portal:1.0.0}"
+
+# Shared by the portal and its migrate step (the app validates all of it at startup).
+x-portal-environment: &portal-environment
+  Lull__EnrolmentSecret: "${LULL_ENROLMENT_SECRET:?set LULL_ENROLMENT_SECRET in .env}"
+  Lull__TrustForwardedHeaders: "${LULL_TRUST_FORWARDED_HEADERS:-true}"
+  Lull__TrustedProxies: "${LULL_TRUSTED_PROXIES:-}"
+  AllowedHosts: "${LULL_ALLOWED_HOSTS:-*}"
+  Lull__RateLimitPerMinute: "${LULL_RATE_LIMIT_PER_MINUTE:-20}"
+  Lull__RegisterRateLimitPerMinute: "${LULL_REGISTER_RATE_LIMIT_PER_MINUTE:-300}"
+  Lull__DeviceAuthFailuresPerMinute: "${LULL_DEVICE_AUTH_FAILURES_PER_MINUTE:-60}"
+  Lull__AuditRetentionDays: "${LULL_AUDIT_RETENTION_DAYS:-365}"
+  Lull__LocalSignIn: "${LULL_LOCAL_SIGN_IN:-true}"
+  Lull__Entra__TenantId: "${LULL_ENTRA_TENANT_ID:-}"
+  Lull__Entra__ClientId: "${LULL_ENTRA_CLIENT_ID:-}"
+  Lull__Entra__ClientSecret: "${LULL_ENTRA_CLIENT_SECRET:-}"
+  Lull__Entra__StudentsClaim: "${LULL_ENTRA_STUDENTS_CLAIM:-students}"
+  Lull__Entra__AdminRole: "${LULL_ENTRA_ADMIN_ROLE:-Admin}"
+  Lull__Entra__ParentRole: "${LULL_ENTRA_PARENT_ROLE-Parent}"
+  Lull__Entra__LinkLocalAccountsByEmail: "${LULL_ENTRA_LINK_LOCAL_ACCOUNTS:-false}"
+
+# The portal's containers (the app and its migrate step) are locked down: a read-only
+# file system (writable only at /keys and a small in-memory /tmp), no Linux
+# capabilities, and no way to gain privileges. They need none of it, so a flaw in
+# the portal gets as little as possible. (Postgres and the backup service keep
+# Docker's defaults: the postgres image starts as root and switches user.)
+x-locked-down: &locked-down
+  read_only: true
+  tmpfs:
+    - /tmp:size=16m
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+# Every service's log, rotated: Docker's default keeps it forever and can fill the disk.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  # Applies database migrations and sets up the portal's database user, then
+  # exits. The portal starts only if it succeeded, so a failed migration stops
+  # the deploy with the old schema intact. Connects as the database owner.
+  migrate:
+    build: .
+    image: *portal-image
+    command: ["--migrate"]
+    environment:
+      <<: *portal-environment
+      Lull__ConnectionString: "Host=db;Database=lull;Username=lull"
+      # Passwords go separately so they may contain any character (; " ' = and so on).
+      Lull__DatabasePassword: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}"
+      Lull__AppDatabasePassword: "${LULL_APP_DB_PASSWORD:?set LULL_APP_DB_PASSWORD in .env: see .env.example}"
+    healthcheck:
+      disable: true # the image's check is for the web server, which this doesn't start
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    logging: *logging
+    <<: *locked-down
+
+  # Connects as lull_app: it can read and write data, but not change the schema.
+  # Runs as a single instance (docs/administration.md, "Deploy").
+  portal:
+    build: .
+    image: *portal-image
+    # Loopback only by default, for a reverse proxy on this host: anyone who
+    # could reach the port directly could forge X-Forwarded-For
+    # (docs/administration.md, "Deploy"). LULL_PORTAL_BIND=0.0.0.0 for a proxy on
+    # another machine.
+    ports:
+      - "${LULL_PORTAL_BIND:-127.0.0.1}:${LULL_PORTAL_PORT:-8080}:8080"
+    environment:
+      <<: *portal-environment
+      # Pool kept well under Postgres's 100 connections (97 for non-superusers),
+      # leaving room for backups and psql: a burst of check-ins (every Mac
+      # changing phase at the same school time) then queues for a connection
+      # instead of failing with "too many clients".
+      Lull__ConnectionString: "Host=db;Database=lull;Username=lull_app;Maximum Pool Size=40"
+      Lull__DatabasePassword: "${LULL_APP_DB_PASSWORD:?set LULL_APP_DB_PASSWORD in .env: see .env.example}"
+    volumes:
+      - portal-keys:/keys
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    logging: *logging
+    <<: *locked-down
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: lull
+      POSTGRES_USER: lull
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lull -d lull"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    logging: *logging
+
+  # A backup on start, then nightly (backup/backup.sh). Dumps go to a folder on
+  # the host, outside Docker's volumes, so `down -v` can't delete them; copy
+  # that folder off the server with your usual backups.
+  backup:
+    image: postgres:17
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    environment:
+      PGHOST: db
+      PGDATABASE: lull
+      PGUSER: lull
+      PGPASSWORD: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}"
+      TZ: "${LULL_BACKUP_TZ:-Australia/Sydney}"
+      BACKUP_AT: "${LULL_BACKUP_AT:-02:00}"
+      KEEP_DAYS: "${LULL_BACKUP_KEEP_DAYS:-14}"
+    volumes:
+      - ./backup/backup.sh:/backup.sh:ro
+      - ${LULL_BACKUP_DIR:-./backups}:/backups
+    healthcheck:
+      test: ["CMD", "/bin/sh", "/backup.sh", "--check"] # unhealthy when the newest backup is over 26 hours old
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  db-data:
+  portal-keys:

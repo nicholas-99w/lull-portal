@@ -1,0 +1,8 @@
+{
+  "revision": 1760000000008,
+  "enabled": true,
+  "holidayOff": true,
+  "holidayPeriods": [
+    { "start": "2026-10-16T15:30", "lastDay": "2026-10-25" }
+  ]
+}

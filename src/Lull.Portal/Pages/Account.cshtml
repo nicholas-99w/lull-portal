@@ -1,0 +1,37 @@
+@page
+@model AccountModel
+@{
+    ViewData["Title"] = "Your account";
+    var err = Model.Errors.Count > 0 ? "errors" : null;
+    var bad = Model.Errors.Count > 0 ? "true" : null;
+}
+<div class="card login">
+    <h1>Your account</h1>
+    <p class="muted">@User.Identity!.Name</p>
+    @if (Model.Notice is { } n) { <div class="notice">@n</div> }
+    @if (Model.Required)
+    {
+        <div class="notice warn">Please choose a new password before you continue: the portal's password rules have changed.</div>
+    }
+    @if (Model.IsEntra)
+    {
+        <p>You sign in with your Microsoft account, so there's no portal password to change. Your name, email and children
+            come from your school's Microsoft directory.</p>
+    }
+    else
+    {
+    <partial name="_Errors" model="Model.Errors" />
+    <form method="post">
+        <label for="current">Current password</label>
+        <input type="password" id="current" name="current" autocomplete="current-password" aria-describedby="@(err)" aria-invalid="@(bad)" required>
+        <label for="password">New password</label>
+        <input type="password" id="password" name="password" autocomplete="new-password" aria-describedby="password-rules @(err)" aria-invalid="@(bad)" required>
+        <p class="small muted" id="password-rules">@Model.Rules</p>
+        <label for="confirm">Confirm password</label>
+        <input type="password" id="confirm" name="confirm" autocomplete="new-password" aria-describedby="@(err)" aria-invalid="@(bad)" required>
+        <p><button type="submit">Change</button></p>
+    </form>
+    <p class="small muted">Changing it signs you out on your other devices.</p>
+    @if (Model.IsAdmin) { <p class="small"><a href="/TwoFactor">Two-step sign-in</a></p> }
+    }
+</div>

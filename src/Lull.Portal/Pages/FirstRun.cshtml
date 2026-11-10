@@ -1,0 +1,24 @@
+@page
+@model FirstRunModel
+@{
+    ViewData["Title"] = "Set up the portal";
+    var err = Model.Errors.Count > 0 ? "errors" : null;
+    var bad = Model.Errors.Count > 0 ? "true" : null;
+}
+<div class="card login">
+    <h1>Set up the portal</h1>
+    <p>Welcome. Create the first administrator account. It becomes the <strong>owner</strong>: always an admin, never deleted, and the account that creates the other admins and parents.</p>
+    <partial name="_Errors" model="Model.Errors" />
+    <form method="post">
+        <label for="name">Your name</label>
+        <input type="text" id="name" name="name" value="@Model.Name" autocomplete="name" autofocus aria-describedby="@(err)" aria-invalid="@(bad)" required>
+        <label for="email">Email (your username)</label>
+        <input type="text" id="email" name="email" value="@Model.Email" autocomplete="username" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="@(err)" aria-invalid="@(bad)" required>
+        <label for="password">Administrator password</label>
+        <input type="password" id="password" name="password" autocomplete="new-password" aria-describedby="password-rules @(err)" aria-invalid="@(bad)" required>
+        <p class="small muted" id="password-rules">@PasswordRules.Describe(Roles.Admin)</p>
+        <label for="confirm">Confirm password</label>
+        <input type="password" id="confirm" name="confirm" autocomplete="new-password" aria-describedby="@(err)" aria-invalid="@(bad)" required>
+        <p><button type="submit">Create the owner account</button></p>
+    </form>
+</div>

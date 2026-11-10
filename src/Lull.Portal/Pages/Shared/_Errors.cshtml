@@ -1,0 +1,9 @@
+@model IReadOnlyList<string>
+@* What's wrong with a form, at the top of it. Focused as the page loads (no script needed), so a screen
+   reader reads it first and a phone's keyboard stays closed. Fields it's about point here: aria-describedby="errors". *@
+@if (Model.Count > 0)
+{
+    <div class="errors" id="errors" role="alert" tabindex="-1" autofocus>
+        <ul>@foreach (var e in Model) { <li>@e</li> }</ul>
+    </div>
+}

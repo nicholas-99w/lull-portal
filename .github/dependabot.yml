@@ -1,0 +1,27 @@
+# Weekly dependency update PRs. Major versions (a new .NET, a new Postgres) are
+# left out: those are planned upgrades, not routine bumps.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: / # both projects (src and tests)
+    schedule:
+      interval: weekly
+    groups:
+      portal-nuget:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: docker
+    directory: / # the Dockerfile's .NET base images
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

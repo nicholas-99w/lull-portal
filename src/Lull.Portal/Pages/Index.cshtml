@@ -1,0 +1,22 @@
+@page
+@model IndexModel
+@{ ViewData["Title"] = "Your children"; }
+<h1>Your children</h1>
+@if (Model.Children.Count == 0)
+{
+    <div class="card">
+        <p>No students are linked to your account yet. Contact your school's IT team.</p>
+    </div>
+}
+else if (Model.Devices.Count == 0)
+{
+    <div class="card">
+        <p>No Macs found yet for @string.Join(", ", Model.Children).</p>
+        <p class="muted">A Mac appears here once your child signs in to it.</p>
+    </div>
+}
+@* The cards update while the page is open (live.js, IndexModel.OnGetLive). *@
+<div data-live="cards" data-live-url="/?handler=Live">
+<partial name="_HomeCards" model="Model" />
+</div>
+<script src="~/live.js" asp-append-version="true" defer></script>

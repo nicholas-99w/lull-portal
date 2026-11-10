@@ -1,0 +1,61 @@
+{
+  "configErrors": [],
+  "configValid": true,
+  "debugBuild": false,
+  "enabled": true,
+  "nextTransition": "2026-10-15T19:30:00Z",
+  "phase": "locked",
+  "profileSchedules": [
+    {
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "end": "07:00",
+      "name": "Profile",
+      "start": "20:00"
+    }
+  ],
+  "reportedAt": "2026-10-15T12:00:00Z",
+  "scheduleName": "School nights",
+  "schedules": [
+    {
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Sun"
+      ],
+      "end": "06:30",
+      "name": "School nights",
+      "start": "21:30"
+    },
+    {
+      "days": [
+        "Fri",
+        "Sat"
+      ],
+      "end": "08:00",
+      "name": "Weekend",
+      "start": "23:00"
+    }
+  ],
+  "settingsRevision": 1760000000000,
+  "timeStatus": "synced",
+  "timeZone": "Australia/Sydney",
+  "users": [
+    {
+      "agentConnected": true,
+      "exempt": false,
+      "fullName": "Jane Smith",
+      "username": "jsmith26"
+    }
+  ],
+  "version": "0.2.0",
+  "windowEnd": "2026-10-15T19:30:00Z",
+  "windowStart": "2026-10-15T10:30:00Z"
+}

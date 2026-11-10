@@ -1,0 +1,23 @@
+@* Where IT goes, for the sidebar and the menu that replaces it on a smaller screen. "page" is the page
+   itself; "true" is somewhere within that section, such as one Mac from Devices. *@
+@{
+    var here = Context.Request.Path;
+    var sections = new (string Href, string Name, string[] Within)[]
+    {
+        ("/Admin/Devices", "Devices", ["/Device"]),
+        ("/Admin/Users", "Users", []),
+        ("/Admin/Settings", "Settings", []),
+        ("/Admin/Audit", "Audit log", []),
+    };
+    string? Current(string href, string[] within)
+    {
+        if (here.Equals(href, StringComparison.OrdinalIgnoreCase)) return "page";
+        return here.StartsWithSegments(href) || within.Any(w => here.StartsWithSegments(w)) ? "true" : null;
+    }
+}
+<nav class="side-nav" aria-label="Main">
+    @foreach (var (href, label, within) in sections)
+    {
+        <a href="@href" aria-current="@Current(href, within)">@label</a>
+    }
+</nav>

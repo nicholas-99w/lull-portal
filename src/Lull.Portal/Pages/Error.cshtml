@@ -1,0 +1,20 @@
+@page
+@model ErrorModel
+@{
+    var (title, text) = Model.Code switch
+    {
+        400 => ("That didn't work", "The form may have expired. Go back, reload the page and try again."),
+        404 => ("Page not found", "That page doesn't exist, or your account can't open it."),
+        429 => ("Too many attempts", "Wait a minute, then try again."),
+        _ => ("Something went wrong", "The portal couldn't finish that. Try again in a moment."),
+    };
+    ViewData["Title"] = title;
+}
+<div class="card">
+    <h1>@title</h1>
+    <p>@text <a href="/">Back to the start</a>.</p>
+    @if (Model.Code >= 500)
+    {
+        <p class="small muted">If it keeps happening, tell IT and quote reference <code>@Model.Reference</code>.</p>
+    }
+</div>

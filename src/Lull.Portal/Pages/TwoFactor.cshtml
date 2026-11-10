@@ -1,0 +1,41 @@
+@page
+@model TwoFactorModel
+@{
+    ViewData["Title"] = "Two-step sign-in";
+    var err = Model.Errors.Count > 0 ? "errors" : null;
+    var bad = Model.Errors.Count > 0 ? "true" : null;
+}
+<div class="card login">
+    <h1>Two-step sign-in</h1>
+    @if (Model.Account.HasTwoFactor)
+    {
+        <p>On since @DisplayDate.Date(Model.Account.TwoFactorSince!.Value). Each time you sign in with your password, you also
+            enter the code from your authenticator app.</p>
+        <p class="small muted">New phone? Ask another admin for a new setup code (the owner: run <code>--reset-owner</code> on the server).
+            It clears two-step sign-in, so you can set it up again.</p>
+    }
+    else if (!Model.CanSetUp)
+    {
+        <p>Two-step sign-in is for admin accounts that sign in with a password.</p>
+    }
+    else
+    {
+        <p>Admin accounts need a code from an authenticator app (such as Microsoft Authenticator, Google Authenticator or
+            1Password) as well as the password. Set it up to continue.</p>
+        <partial name="_Errors" model="Model.Errors" />
+        <p><strong>1.</strong> Scan this QR code with your authenticator app (add an account, then scan a QR code).</p>
+        @* Generated here (QRCoder) from the key: rect and path elements only, no scripts or styles. *@
+        <div class="qr" role="img" aria-label="QR code of your two-step sign-in key">@Html.Raw(Model.KeyQrSvg)</div>
+        <p class="small muted">Can't scan it? <a href="@Model.KeyUri">Open it in the app</a> on this device, or enter this key
+            (time-based):</p>
+        <p><code class="big">@Model.KeyText</code></p>
+        <p><strong>2.</strong> Enter the 6-digit code the app shows for it.</p>
+        <form method="post">
+            <label for="code">Code</label>
+            <input type="text" id="code" name="code" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9 ]*" maxlength="7" aria-describedby="@(err)" aria-invalid="@(bad)" required>
+            <input type="hidden" name="pending" value="@Model.Pending">
+            <p><button type="submit">Turn on</button></p>
+        </form>
+        <p class="small muted">Keep the key private: anyone with it, and your password, could sign in as you.</p>
+    }
+</div>

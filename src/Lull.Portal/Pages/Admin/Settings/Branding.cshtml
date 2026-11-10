@@ -1,0 +1,114 @@
+@page
+@model BrandingModel
+@{
+    ViewData["Title"] = "Branding";
+    var b = Model.Branding;
+    // What each colour is checked against, as Branding.Check does: "against" is a colour or another field's name.
+    var colors = new (string Field, string Label, string? Value, string Default, string Check, string Against, string Shown, string Hint)[]
+    {
+        ("primary", "Buttons and links", b.Primary, Branding.Defaults.Primary, "text", Branding.Defaults.Card, "the white text on buttons", "Buttons have white text on this colour, so it needs to be fairly dark."),
+        ("headerBackground", "Header background", b.HeaderBackground, Branding.Defaults.HeaderBackground, "", "", "", "The bar across the top of every page, and IT's side bar on a computer."),
+        ("headerText", "Header text", b.HeaderText, Branding.Defaults.HeaderText, "text", "headerBackground", "the header background", "The name and links there."),
+        ("background", "Page background", b.Background, Branding.Defaults.Background, "page", Branding.Defaults.Muted, "the grey hints on it", "Behind the cards, in light mode. Dark mode keeps its own."),
+        ("downtime", "Downtime", b.Downtime, Branding.Defaults.Downtime, "text", Branding.Defaults.Card, "the white cards it's shown on", "Downtime and lock-downs: status dots, labels and the advanced schedule."),
+    };
+    var previewName = b.SchoolName ?? "Lull";
+
+    async Task Phone(string mode, string label)
+    {
+        <div class="preview @mode">
+            <p class="preview-label small muted">@label</p>
+            <div class="preview-phone">
+                <div class="preview-top">
+                    @if (Model.State.HasLogo) { <img src="@Model.State.LogoUrl" alt="" class="brand-logo"> }
+                    <span class="preview-name" data-preview-name>@previewName</span>
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="10" r="3" /><path d="M6.5 18.5a6.5 6.5 0 0 1 11 0" /></svg>
+                </div>
+                <div class="preview-body">
+                    <p class="preview-title">Your children</p>
+                    <div class="card">
+                        <strong>Student's name</strong>
+                        <div class="state"><span class="dot rest"></span><b>In downtime</b></div>
+                        <p class="state-next">Unlocks 6:30 am tomorrow</p>
+                        <div class="button-row"><span class="preview-outline">Unlock now</span><span class="preview-fill">Save</span></div>
+                    </div>
+                    <span class="preview-link">A link</span>
+                </div>
+            </div>
+        </div>
+        await Task.CompletedTask;
+    }
+}
+<partial name="_Tabs" model="@("/Admin/Settings/Branding")" />
+@if (Model.Notice is { } notice) { <div class="notice">@notice</div> }
+
+<p class="muted">Make the portal look like your school's: everyone sees it, on every page and the sign-in page. Leave anything empty to keep Lull's own.</p>
+<partial name="_Errors" model="Model.Errors" />
+<form method="post" enctype="multipart/form-data" class="card" data-min-contrast="@Branding.MinContrast">
+    <fieldset>
+        <legend>School</legend>
+        <label for="schoolName">Name</label>
+        <input type="text" id="schoolName" name="schoolName" value="@b.SchoolName" maxlength="@Branding.MaxSchoolNameLength" placeholder="Lull">
+        <p class="small muted mt-0">Shown at the top of every page and in the browser tab, instead of Lull.</p>
+
+        <label for="logo">Logo</label>
+        @if (Model.State.HasLogo)
+        {
+            <img src="@Model.State.LogoUrl" alt="The current logo" class="logo-preview">
+            <label class="toggle plain"><input type="checkbox" name="removeLogo" value="true"> Remove the logo</label>
+        }
+        <input type="file" id="logo" name="logo" accept="@Logo.Accept">
+        <p class="small muted mt-0">PNG, JPEG or WebP, at most @(Branding.MaxLogoBytes / 1024) KB. Shown beside the name, and as the browser tab's icon. A square or wide image with a transparent background works best.</p>
+        <label class="toggle option">
+            <input type="checkbox" name="logoOnly" value="true" @(b.LogoOnly ? "checked" : "")>
+            <span class="option-text"><span>Show only the logo, not the name</span>
+                <span class="small muted">For a logo with the school's name in it, such as a wide one. The name stays in the browser tab, and for screen readers.</span></span>
+        </label>
+    </fieldset>
+
+    <fieldset>
+        <legend>Colours</legend>
+        <p class="small muted mt-0">As # and six hex digits, such as #1f4e79. Each one is checked for contrast, so text on it stays easy to read; dark mode gets lighter shades of the button and downtime colours automatically.</p>
+        @* The script shows them, with the colours as they're chosen. inert: it only looks like a page. *@
+        <div class="previews" data-previews hidden inert aria-hidden="true">
+            @{ await Phone("light", "On a phone"); await Phone("dark", "On a phone, in dark mode"); }
+        </div>
+        <div class="colors">
+            @foreach (var c in colors)
+            {
+                <div class="color-field" data-field="@c.Field" data-default="@c.Default" data-check="@c.Check" data-against="@c.Against" data-shown="@c.Shown">
+                    <label for="@c.Field">@c.Label</label>
+                    <div class="row">
+                        <input type="color" hidden aria-label="Pick: @c.Label">
+                        <input type="text" id="@c.Field" name="@c.Field" value="@c.Value" placeholder="@c.Default" maxlength="7" autocapitalize="none" autocorrect="off" spellcheck="false">
+                    </div>
+                    @if (c.Check.Length > 0) { <output class="contrast small" for="@c.Field"></output> }
+                    <p class="small muted mt-0">@c.Hint</p>
+                </div>
+            }
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Light and dark</legend>
+        <label class="toggle plain option">
+            <input type="radio" name="theme" value="device" @(b.AlwaysLight ? "" : "checked")>
+            <span class="option-text"><span>Follow each person's device</span><span class="small muted">Dark mode for those who've chosen it on their phone or computer.</span></span>
+        </label>
+        <label class="toggle plain option">
+            <input type="radio" name="theme" value="light" @(b.AlwaysLight ? "checked" : "")>
+            <span class="option-text"><span>Always light</span><span class="small muted">For colours or a logo that don't suit dark mode. Everyone gets the light look.</span></span>
+        </label>
+    </fieldset>
+
+    <fieldset>
+        <legend>Words for parents</legend>
+        <label for="loginMessage">On the sign-in page</label>
+        <textarea id="loginMessage" name="loginMessage" rows="2" maxlength="@Branding.MaxLoginMessageLength" placeholder="Parents: sign in with the Microsoft account the school gave you.">@b.LoginMessage</textarea>
+        <label for="supportContact">Who to contact for help</label>
+        <input type="text" id="supportContact" name="supportContact" value="@b.SupportContact" maxlength="@Branding.MaxSupportContactLength" placeholder="ithelp@example.edu.au or 02 5550 1234">
+        <p class="small muted mt-0">Shown at the bottom of every page as “Need help? Contact …”.</p>
+    </fieldset>
+    <button type="submit">Save</button>
+</form>
+<script src="~/branding.js" asp-append-version="true" defer></script>

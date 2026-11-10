@@ -1,0 +1,129 @@
+@model DeviceModel
+@* A Mac's page: what can be done about it now. Also sent on its own while the page is open (_DeviceLive),
+   with fresh forms: the settings revision they carry moves on as the Mac checks in. *@
+@{ var s = Model.Device.Settings; }
+    <h2>Controls</h2>
+    <partial name="_Errors" model="Model.ControlErrors" />
+    @if (Model.NoControls)
+    {
+        <p class="muted mb-0">No controls available at this time.</p>
+    }
+    @if (Model.AwaitingCheckIn)
+    {
+        <p class="small muted">Waiting for Mac to check in</p>
+    }
+    @if (Model.ReleasedUntil is { } releasedUntil)
+    {
+        <p class="headline">Unlocked until @releasedUntil</p>
+        <p class="small muted">Later downtime still goes ahead.</p>
+    }
+    @if (Model.SkippingAt is { } skippingAt)
+    {
+        <p class="headline">Skipping the downtime at @skippingAt</p>
+        <p class="small muted">Later downtime still goes ahead.</p>
+    }
+    @if (Model.CanRelease)
+    {
+        <form method="post" asp-page-handler="Release" class="action">
+            <input type="hidden" name="revision" value="@s.Revision">
+            <button type="submit">Unlock now</button>
+            <p class="small muted hint">@(Model.ScheduleStartsAt is { } startsAt ? $"Ends the lock-down. Downtime still starts at {startsAt}." : "Ends the downtime in progress early. The next one still goes ahead.")</p>
+        </form>
+    }
+    else if (Model.ReleaseNotAllowed is { } noRelease)
+    {
+        <p class="muted small">@noRelease</p>
+    }
+    @if (Model.NextWindow is { } next)
+    {
+        <form method="post" asp-page-handler="Skip" class="action">
+            <input type="hidden" name="revision" value="@s.Revision">
+            <input type="hidden" name="start" value="@next.Start.ToUnixTimeSeconds()">
+            <button type="submit" class="secondary">Skip next downtime</button>
+            <p class="small muted hint">The Mac won't lock at @Model.NextWindowAt. Later downtime still goes ahead.</p>
+        </form>
+    }
+    else if (Model.SkipNotAllowed is { } noSkip)
+    {
+        <p class="muted small">@noSkip</p>
+    }
+
+    @{
+        // Choose how long, then confirm: a lock-down takes the Mac away from a child, so never on one tap.
+        // Also to change a lock-down in progress.
+        async Task LockForm(string button)
+        {
+            if (Model.LockNotAllowed is { } why)
+            {
+                <p class="muted">@why</p>
+                return;
+            }
+            <form method="post" asp-page-handler="Lock" class="lock-form">
+                <input type="hidden" name="revision" value="@s.Revision">
+                <fieldset class="m-0">
+                    <legend class="sr-only">How long</legend>
+                    <div class="chips">
+                        @foreach (var (label, minutes) in Model.LockChoices)
+                        {
+                            <label class="chip"><input type="radio" name="minutes" value="@minutes" required> <span>@label</span></label>
+                        }
+                        <label class="chip"><input type="radio" name="minutes" value="" required> <span>Until…</span></label>
+                    </div>
+                    <div class="lock-until">
+                        <label for="until">Until</label>
+                        <input type="time" id="until" name="until">
+                    </div>
+                </fieldset>
+                <p class="m-0"><button type="submit">@button</button></p>
+            </form>
+            await Task.CompletedTask;
+        }
+    }
+    @{
+        // End the lock-down, or cancel an unlock or a skip. A lock-down's comes first, before changing when it ends.
+        async Task ResetForm()
+        {
+            if (Model.ResetNotAllowed is { } noReset)
+            {
+                <p class="muted small">@noReset</p>
+            }
+            else if (Model.Reset is { } reset)
+            {
+                <form method="post" asp-page-handler="ResetOverrides" class="action">
+                    <input type="hidden" name="revision" value="@s.Revision">
+                    <button type="submit" class="secondary">@reset.Button</button>
+                    @if (!Model.AwaitingCheckIn) { <p class="small muted hint">@reset.Hint</p> }
+                </form>
+            }
+            await Task.CompletedTask;
+        }
+    }
+    @if (Model.LockedDownUntil is { } lockedUntil)
+    {
+        await ResetForm();
+        @if (Model.OfferChangeLockDown)
+        {
+            <hr class="divider">
+            <h3>Update lock-down</h3>
+            <p class="small muted">Restart it from now with a new length or end time.</p>
+            await LockForm("Restart lock-down");
+        }
+        else if (!Model.AwaitingCheckIn)
+        {
+            <p class="small muted">Unlocks by itself at @lockedUntil, even if the Mac is offline.</p>
+        }
+    }
+    else if (Model.OfferLock)
+    {
+        <h3>Lock down now</h3>
+        @if (Model.LockNotAllowed is null) { <p class="small muted">Locks the Mac within a few minutes, then unlocks it by itself, even if it's offline.</p> }
+        await LockForm("Lock down");
+    }
+    else if (Model.LockAfterCancelling)
+    {
+        <p class="small muted">To lock down now, cancel the @(Model.Controls.Current is Override.Unlock ? "unlock" : "skip") first.</p>
+    }
+    @if (Model.LockedDownUntil is null)
+    {
+        await ResetForm();
+    }

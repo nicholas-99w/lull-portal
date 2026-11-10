@@ -1,0 +1,47 @@
+@page
+@model UsersModel
+@{
+    ViewData["Title"] = "Users";
+    ViewData["Wide"] = true;
+}
+<h1>Users</h1>
+@if (Model.LocalSignIn)
+{
+<p class="row">
+    <a class="button" href="/Admin/Users/Edit">New user</a>
+    <a class="button secondary" href="/Admin/Users/Import">Import CSV</a>
+</p>
+}
+@if (Model.EntraEnabled)
+{
+    <p class="small muted">People who sign in with Microsoft (Entra ID) appear here after their first sign-in. Their role and students
+        come from Entra each time they sign in.</p>
+}
+@if (Model.Notice is { } n) { <div class="notice">@n</div> }
+<partial name="_Search" model='("Search users", "Search by name, email or student", Model.Query, Model.FilterKey)' />
+<partial name="_Filters" model="Model.Filters" />
+<div class="table-wrap cards-on-phone" role="region" aria-label="Users" tabindex="0"><table>
+    <thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Role</th><th scope="col">Students</th><th scope="col">Status</th><th scope="col">Last sign-in</th></tr></thead>
+    <tbody>
+    @foreach (var u in Model.Users)
+    {
+        <tr>
+            <td class="card-title"><a href="/Admin/Users/Edit/@u.Id">@u.DisplayName</a></td>
+            <td data-label="Email">@u.Email</td>
+            <td data-label="Role">@u.Role @if (u.IsOwner) { <span class="pill ok">Owner</span> }</td>
+            <td data-label="Students">@(u.Role == Roles.Parent ? (u.Students.Count == 0 ? "(none)" : string.Join(", ", u.Students)) : "")</td>
+            <td data-label="Status">
+                @if (u.IsLocked(Model.Now)) { <span class="pill bad">Locked</span> }
+                @if (u.IsEntra) { <span class="pill ok">Entra ID</span> }
+                else if (u.HasPassword) { <span class="pill ok">Active</span> }
+                else if (u.SetupCodeValid(Model.Now)) { <span class="pill warn">Waiting for first sign-in</span> }
+                else { <span class="pill bad">Setup code expired</span> }
+                @if (u.HasTwoFactor) { <span class="pill ok">Two-step</span> }
+                else if (u.NeedsTwoFactorSetup && u.HasPassword) { <span class="pill warn">No two-step yet</span> }
+            </td>
+            <td data-label="Last sign-in">@if (u.LastLoginAt is { } signedIn) { <time data-local datetime="@DisplayDate.Iso(signedIn)">@DisplayDate.DateTime(signedIn)</time> } else { <span>never</span> }</td>
+        </tr>
+    }
+    </tbody>
+</table></div>
+<partial name="_Pager" model="Model.Pager" />

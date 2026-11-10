@@ -1,0 +1,6 @@
+{
+  "revision": 1760000000002,
+  "enabled": true,
+  "schoolNights": { "start": "9:30pm", "end": "06:30" },
+  "weekend": { "start": "23:00", "end": "08:00" }
+}

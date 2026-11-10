@@ -1,0 +1,16 @@
+{
+  "revision": 1760000000009,
+  "enabled": true,
+  "schoolNights": { "start": "21:30", "end": "06:30" },
+  "week": [
+    { "day": "Mon", "start": "15:30", "end": "17:00" },
+    { "day": "Mon", "start": "21:00", "end": "07:00" },
+    { "day": "Tue", "start": "21:00", "end": "07:00" },
+    { "day": "Wed", "start": "21:00", "end": "07:00" },
+    { "day": "Thu", "start": "21:00", "end": "07:00" },
+    { "day": "Fri", "start": "22:00", "end": "00:00" },
+    { "day": "Sat", "start": "00:00", "end": "00:00" },
+    { "day": "Sun", "start": "00:00", "end": "08:00" },
+    { "day": "Sun", "start": "21:00", "end": "07:00" }
+  ]
+}

@@ -1,0 +1,41 @@
+@page
+@model AuditModel
+@{
+    ViewData["Title"] = "Audit log";
+    ViewData["Wide"] = true;
+}
+<h1>Audit log</h1>
+<p class="muted">Every change, newest first: settings, sign-up of Macs, resets, primary users, school hours and holidays, and parents' children lists.
+    @(Model.RetentionDays > 0 ? $"Entries are kept for {Model.RetentionDays:N0} days." : "Entries are kept forever.")</p>
+<partial name="_Search" model='("Search the audit log", "Search by who, what, serial or details", Model.Query, (string?)null)' />
+@if (Model.Entries.Count == 0 && Model.Query is { Length: > 0 })
+{
+    <div class="card"><p>No entries match “@Model.Query”.</p></div>
+}
+else
+{
+    <div class="table-wrap cards-on-phone" role="region" aria-label="Audit log" tabindex="0"><table>
+        <thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">Mac</th><th scope="col">What</th></tr></thead>
+        <tbody>
+        @foreach (var e in Model.Entries)
+        {
+            var details = AuditText.Details(e.Detail);
+            <tr>
+                <td data-label="When"><time data-local="seconds" datetime="@DisplayDate.Iso(e.At)">@DisplayDate.DateTimeWithSeconds(e.At)</time></td>
+                <td data-label="Who">@AuditText.Actor(e.Actor)</td>
+                <td data-label="Mac">@if (e.DeviceId is { } id) { <a href="/Device/@id">@e.SerialNumber</a> }</td>
+                <td data-label="What">
+                    <strong>@AuditText.Action(e.Action)</strong>
+                    @foreach (var line in details) { <span class="audit-line small muted">@line</span> }
+                    <details class="audit-raw small">
+                        <summary>As recorded</summary>
+                        <code>@e.Action</code>
+                        @if (e.Detail is { Length: > 0 } raw && raw != "null") { <code>@raw</code> }
+                    </details>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table></div>
+}
+<partial name="_Pager" model="Model.Pager" />

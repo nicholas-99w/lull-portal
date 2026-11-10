@@ -1,0 +1,45 @@
+@model WeekGridView
+@* An advanced schedule: days across, hours down, a checkbox per hour (so it works without
+   script); week-grid.js adds dragging across hours. School hours are a red cross and can't be
+   chosen; an hour partly in them is split corner to corner, school's half crossed. *@
+<div class="week-wrap" data-week-grid>
+    <table class="week">
+        <thead><tr><td></td>@foreach (var d in WeekGrid.DayNames) { <th scope="col">@d</th> }</tr></thead>
+        <tbody>
+            @for (int hour = 0; hour < 24; hour++)
+            {
+                <tr>
+                    <th scope="row">@WeekGridView.Hour(hour)</th>
+                    @for (int day = 0; day < 7; day++)
+                    {
+                        var cell = WeekGrid.Cell(day, hour);
+                        var part = WeekGrid.School(cell, Model.School);
+                        <td>
+                            @if (part == SchoolInHour.Whole)
+                            {
+                                <span class="slot school" role="img" aria-label="@WeekGrid.DayNames[day] @WeekGridView.Hour(hour): school hours"></span>
+                            }
+                            else
+                            {
+                                var split = part switch { SchoolInHour.FirstPart => "school-first", SchoolInHour.LastPart => "school-last", _ => "" };
+                                <span class="slot @split"><input type="checkbox" name="@Model.Name" value="@cell" aria-label="@Model.Label(day, hour, part)" @(Model.Grid[cell] ? "checked" : "")></span>
+                            }
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+<ul class="legend small muted">
+    <li><span class="swatch on"></span>Downtime</li>
+    <li><span class="swatch"></span>No downtime</li>
+    @if (Model.School is { } school)
+    {
+        <li><span class="swatch school"></span>School hours</li>
+        @if (Model.HasPartHours)
+        {
+            <li><span class="swatch part"></span>Partly school hours: downtime ends at @Window.Friendly(school.Start), or starts at @Window.Friendly(school.End)</li>
+        }
+    }
+</ul>

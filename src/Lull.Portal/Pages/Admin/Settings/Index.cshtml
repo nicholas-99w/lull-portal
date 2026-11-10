@@ -1,0 +1,24 @@
+@page
+@model SchoolHoursModel
+@{
+    ViewData["Title"] = "School hours";
+    string T(TimeOnly t) => Window.Format(t);
+    var err = Model.Errors.Count > 0 ? "errors" : null;
+    var bad = Model.Errors.Count > 0 ? "true" : null;
+}
+<partial name="_Tabs" model="@("/Admin/Settings")" />
+@if (Model.Notice is { } notice) { <div class="notice">@notice</div> }
+
+<p class="muted">Each Mac follows the schedule in its Jamf settings profile. Parents can change their child's downtime, lock down and unlock, but never inside school hours. IT isn't limited by them.</p>
+<partial name="_Errors" model="Model.Errors" />
+<form method="post" class="card">
+    <fieldset>
+        <legend>Monday to Friday</legend>
+        <div class="row">
+            <span>From</span> <input type="time" name="schoolStart" value="@T(Model.Policy.SchoolHours.Start)" aria-label="From (school starts)" aria-describedby="@(err)" aria-invalid="@(bad)" required>
+            <span>to</span> <input type="time" name="schoolEnd" value="@T(Model.Policy.SchoolHours.End)" aria-label="to (school ends)" aria-describedby="@(err)" aria-invalid="@(bad)" required>
+        </div>
+        <p class="small muted">In each Mac's own time zone. On <a href="/Admin/Settings/Holidays">school holidays</a> they don't apply. If you change them, parents' times that now overlap are trimmed to fit (or go back to following the school), and each change is logged.</p>
+    </fieldset>
+    <button type="submit">Save</button>
+</form>

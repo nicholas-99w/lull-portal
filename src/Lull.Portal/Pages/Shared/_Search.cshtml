@@ -1,0 +1,8 @@
+@model (string Label, string Placeholder, string? Query, string? Filter)
+@* The search above an admin list, within the filter chosen. A real label, for screen readers: the placeholder goes away as you type. *@
+<form method="get" class="search-form" role="search">
+    <label for="q" class="sr-only">@Model.Label</label>
+    <input type="search" id="q" name="q" value="@Model.Query" placeholder="@Model.Placeholder">
+    @if (Model.Filter is { Length: > 0 } filter) { <input type="hidden" name="f" value="@filter"> }
+    <button type="submit" class="secondary">Search</button>
+</form>

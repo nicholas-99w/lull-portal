@@ -1,0 +1,90 @@
+@page
+@model LoginModel
+@inject Lull.Portal.Data.PortalStore Store
+@{
+    ViewData["Title"] = "Sign in";
+    var state = await Store.GetBrandingOrDefaultAsync(HttpContext.RequestAborted);
+    var brand = state.Branding;
+    ViewData["BrandInPage"] = state.HasLogo;
+    // With Microsoft sign-in, email and password fold away under it, open after a try (or for the owner's link).
+    bool passwordOpen = Model.Email is not null || Request.Query["local"] == "true";
+    var err = Model.Error is not null ? "errors" : null;
+    var bad = Model.Error is not null ? "true" : null;
+
+    async Task PasswordForm()
+    {
+        <form method="post">
+            <label for="email">Email</label>
+            <input type="text" id="email" name="email" value="@Model.Email" autocomplete="username" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" @(Model.EntraEnabled ? "" : "autofocus") aria-describedby="@(err)" aria-invalid="@(bad)" required>
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" autocomplete="current-password" aria-describedby="@(err)" aria-invalid="@(bad)" required>
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl">
+            <p><button type="submit" class="wide">Sign in</button></p>
+        </form>
+        @if (Model.LocalSignIn)
+        {
+            <p class="small mb-0">First time here? <a href="/Setup">Set up your password</a> with the setup code from your school.</p>
+        }
+    }
+}
+<div class="login">
+@* The school's logo above the card (the header already has the name). *@
+@if (state.HasLogo)
+{
+    <div class="login-brand">
+        <img src="@state.LogoUrl" alt="" class="login-logo">
+        <span class="@(brand.LogoOnly ? "sr-only" : null)">@(brand.SchoolName ?? "Lull")</span>
+    </div>
+}
+<div class="card">
+    <h1>Sign in</h1>
+    @if (brand.LoginMessage is { } message) { <p class="login-message">@message</p> }
+    @if (Model.Error is { } error)
+    {
+        <partial name="_Errors" model="new[] { error }" />
+    }
+    @if (Model.Ticket is { } ticket)
+    {
+        <p>Enter the 6-digit code from your authenticator app.</p>
+        <form method="post" asp-page-handler="Code">
+            <label for="code">Code</label>
+            <input type="text" id="code" name="code" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9 ]*" maxlength="7" autofocus aria-describedby="@(err)" aria-invalid="@(bad)" required>
+            <input type="hidden" name="ticket" value="@ticket">
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl">
+            <p><button type="submit" class="wide">Sign in</button></p>
+        </form>
+        <p class="small muted">Lost your phone? Ask another admin for a new setup code (the owner: run <code>--reset-owner</code> on the server).
+            It clears two-step sign-in, so you can set it up again.</p>
+    }
+    else
+    {
+    @if (Model.EntraEnabled)
+    {
+        @* Microsoft's sign-in button, as its branding guidelines lay it out: the four-square logo, then the words. *@
+        <a class="ms-signin" asp-page="/Login" asp-page-handler="Entra" asp-route-returnUrl="@Model.ReturnUrl">
+            <img src="~/ms-logo.svg" alt="" width="21" height="21">
+            <span>Sign in with Microsoft</span>
+        </a>
+    }
+    @if (Model.ShowPasswordForm)
+    {
+        @if (Model.EntraEnabled)
+        {
+            <div class="or" role="separator"><span>or</span></div>
+            <details class="password-signin" open="@passwordOpen">
+                <summary>@(Model.LocalSignIn ? "Sign in with email and password" : "Portal owner: sign in with your password")</summary>
+                @{ await PasswordForm(); }
+            </details>
+        }
+        else
+        {
+            await PasswordForm();
+        }
+    }
+    else
+    {
+        <p class="small muted login-owner"><a href="/Login?local=true">Portal owner: sign in with a password</a></p>
+    }
+    }
+</div>
+</div>

@@ -1,0 +1,47 @@
+name: Bug report
+description: Something in the portal doesn't work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never paste secrets: `.env` values, passwords, setup codes, enrolment secrets or device tokens.
+        A security problem? Report it privately instead (SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Portal version
+      description: "`docker compose images portal` shows the image tag."
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Sign in as a parent
+        2. Open a Mac's page
+        3. ...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >-
+        From `docker compose logs portal`. If the error page showed a reference, include the
+        log lines with that RequestId.
+      render: text
+  - type: dropdown
+    id: sign-in
+    attributes:
+      label: Sign-in
+      options:
+        - Local accounts only
+        - Entra ID
+        - Both

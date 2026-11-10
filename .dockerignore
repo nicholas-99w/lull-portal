@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+# Anything under src/Lull.Portal/wwwroot is published and served, so keep
+# Finder metadata out of the image.
+**/.DS_Store
+tests/
+.env
+# Not needed to build the image. backups/ holds root-only database dumps.
+.git/
+.github/
+backups/
+contract/

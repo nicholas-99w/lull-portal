@@ -1,0 +1,119 @@
+@inject Lull.Portal.Data.PortalStore Store
+@{
+    // IT's branding (Admin/Settings/Branding), if any.
+    var brand = await Store.GetBrandingOrDefaultAsync(Context.RequestAborted);
+    var name = brand.Branding.SchoolName ?? "Lull";
+    var signedIn = User.Identity?.IsAuthenticated == true;
+    var isAdmin = signedIn && User.IsInRole(Roles.Admin);
+    var displayName = User.FindFirst(AccountClaims.DisplayName)?.Value ?? User.Identity?.Name;
+    var here = Context.Request.Path;
+
+    async Task BrandLink()
+    {
+        <a class="brand" href="/">
+            @if (brand.HasLogo) { <img src="@brand.LogoUrl" alt="" class="brand-logo"> }
+            <span class="@(brand.HasLogo && brand.Branding.LogoOnly ? "sr-only" : "brand-name")">@name</span>
+        </a>
+        await Task.CompletedTask;
+    }
+
+    async Task SignOut()
+    {
+        <form method="post" action="/Logout" class="signout">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="link">Sign out</button>
+        </form>
+        await Task.CompletedTask;
+    }
+}
+<!doctype html>
+@* Not an attribute with a null value: Razor keeps data- attributes even then. *@
+<html lang="en-AU"@(brand.Branding.AlwaysLight ? Html.Raw(" data-theme=\"light\"") : null)>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@(ViewData["Title"] is string t ? $"{t} · {name}" : name)</title>
+    @if (brand.HasLogo)
+    {
+        <link rel="icon" href="@brand.LogoUrl" type="@brand.LogoType">
+        <link rel="apple-touch-icon" href="@brand.LogoUrl">
+    }
+    else
+    {
+        <link rel="icon" href="~/favicon.svg" type="image/svg+xml">
+        <link rel="icon" href="~/favicon-32.png" sizes="32x32" type="image/png">
+        <link rel="apple-touch-icon" href="~/apple-touch-icon.png">
+    }
+    @* The phone browser's own bar, matching the header below it. *@
+    @if (brand.Branding.HeaderBackground is { } headerColor)
+    {
+        <meta name="theme-color" content="@headerColor">
+    }
+    else if (brand.Branding.AlwaysLight)
+    {
+        <meta name="theme-color" content="#ffffff">
+    }
+    else
+    {
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1c1c1e">
+    }
+    <link rel="stylesheet" href="~/site.css" asp-append-version="true">
+    @if (brand.Branding.HasColors) { <link rel="stylesheet" href="@brand.StylesheetUrl"> }
+</head>
+<body class="@(isAdmin ? "with-sidebar" : null)">
+<a class="skip-link" href="#main">Skip to content</a>
+@if (isAdmin)
+{
+    @* A computer's layout; the bar below takes over on a smaller screen (site.css shows one or the other). *@
+    <header class="sidebar">
+        @{ await BrandLink(); }
+        <partial name="_AdminNav" />
+        <div class="sidebar-account">
+            <a href="/Account" aria-current="@(here.StartsWithSegments("/Account") ? "page" : null)">@displayName</a>
+            @{ await SignOut(); }
+        </div>
+    </header>
+}
+<div class="page">
+    <header class="top">
+        @if (isAdmin)
+        {
+            <details class="menu" data-menu>
+                <summary aria-label="Menu">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+                </summary>
+                <div class="menu-panel menu-panel-start"><partial name="_AdminNav" /></div>
+            </details>
+        }
+        @* The sign-in page has the school's logo above its card: not twice. *@
+        @if (ViewData["BrandInPage"] is not true) { await BrandLink(); }
+        @if (signedIn)
+        {
+            @* Parents have one page, which the name already goes to, so this is their only menu. *@
+            <details class="menu account-menu" data-menu>
+                <summary>
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="10" r="3" /><path d="M6.5 18.5a6.5 6.5 0 0 1 11 0" /></svg>
+                    <span class="account-name">@displayName</span>
+                    <span class="sr-only">: account menu</span>
+                </summary>
+                <div class="menu-panel menu-panel-end">
+                    <p class="menu-who"><strong>@displayName</strong><br><span class="small muted">@User.Identity!.Name</span></p>
+                    <a href="/Account" aria-current="@(here.StartsWithSegments("/Account") ? "page" : null)">Your account</a>
+                    @{ await SignOut(); }
+                </div>
+            </details>
+        }
+    </header>
+    <main id="main" tabindex="-1" class="@(ViewData["Wide"] is true ? "wide" : null)">
+        @RenderBody()
+    </main>
+    @if (brand.Branding.SupportContact is { } support)
+    {
+        <footer class="site-foot small muted">Need help? Contact @support</footer>
+    }
+</div>
+@if (signedIn) { <script src="~/menu.js" asp-append-version="true" defer></script> }
+@if (isAdmin) { <script src="~/admin.js" asp-append-version="true" defer></script> }
+</body>
+</html>

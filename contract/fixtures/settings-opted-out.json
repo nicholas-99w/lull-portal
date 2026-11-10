@@ -1,0 +1,7 @@
+{
+  "revision": 1760000000001,
+  "enabled": false,
+  "schoolNights": { "start": "21:30", "end": "06:30" },
+  "weekend": { "start": "23:00", "end": "08:00" },
+  "futureField": "ignored by older Macs"
+}

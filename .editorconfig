@@ -1,0 +1,21 @@
+# The portal's code style, checked in CI by: dotnet format Lull.Portal.slnx --verify-no-changes
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{cs,cshtml}]
+indent_style = space
+indent_size = 4
+
+[*.cs]
+# Short initializers stay on one line: new() { ["email"] = email, ["password"] = password }
+csharp_new_line_before_members_in_object_initializers = false
+csharp_new_line_before_members_in_anonymous_types = false
+
+[*.{json,yml,yaml,csproj,slnx}]
+indent_style = space
+indent_size = 2

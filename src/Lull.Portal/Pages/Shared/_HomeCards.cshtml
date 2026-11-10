@@ -1,0 +1,40 @@
+@model IndexModel
+@* A parent's Macs, as cards. Also sent on its own while the page is open (live.js). *@
+<div class="cards">
+    @foreach (var d in Model.Devices)
+    {
+        <div class="card device">
+            <h2>@d.Device.StudentName</h2>
+            <partial name="Shared/_DeviceState" model="d" />
+            <div class="card-foot">
+                <div class="actions">
+                    @if (d.CanRelease)
+                    {
+                        <form method="post" action="/Device/@d.Device.Id?handler=Release">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="revision" value="@d.Device.Settings.Revision">
+                            <button type="submit" class="secondary">Unlock now</button>
+                        </form>
+                    }
+                    else if (d.CanReset)
+                    {
+                        <form method="post" action="/Device/@d.Device.Id?handler=ResetOverrides">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="revision" value="@d.Device.Settings.Revision">
+                            <button type="submit" class="secondary">End lock-down</button>
+                        </form>
+                    }
+                    else if (d.Controls.CanLock && d.Controls.LockNotAllowed is null)
+                    {
+                        <a class="button secondary" href="/Device/@d.Device.Id#lock">Lock down…</a>
+                    }
+                    <a class="button secondary" href="/Device/@d.Device.Id">Settings<span class="sr-only"> for @d.Device.StudentName</span></a>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+@if (Model.Missing.Count > 0 && Model.Devices.Count > 0)
+{
+    <p class="muted small">No Mac found yet for: @string.Join(", ", Model.Missing).</p>
+}

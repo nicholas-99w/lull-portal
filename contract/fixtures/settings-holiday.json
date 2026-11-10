@@ -1,0 +1,10 @@
+{
+  "revision": 1760000000007,
+  "enabled": true,
+  "schoolNights": { "start": "21:30", "end": "06:30" },
+  "holiday": { "start": "23:00", "end": "09:00" },
+  "holidayPeriods": [
+    { "start": "2026-10-16T15:30", "lastDay": "2026-10-25" },
+    { "start": "2026-12-18T15:30", "lastDay": "2027-01-31" }
+  ]
+}

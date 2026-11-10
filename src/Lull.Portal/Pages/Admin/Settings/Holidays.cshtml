@@ -1,0 +1,56 @@
+@page
+@model HolidaysModel
+@{
+    ViewData["Title"] = "School holidays";
+    var holidays = Model.Holidays.ToList();
+    var err = Model.HolidayErrors.Count > 0 ? "errors" : null;
+    var bad = Model.HolidayErrors.Count > 0 ? "true" : null;
+}
+<partial name="_Tabs" model="@("/Admin/Settings/Holidays")" />
+@if (Model.Notice is { } notice) { <div class="notice">@notice</div> }
+
+<p class="muted">On these days (first to last, inclusive, in each Mac's time zone) parents can lock down, unlock and skip downtime at any time. Their weekly times still can't overlap school hours, since those repeat into term.</p>
+<details class="mb-16">
+    <summary class="small">How the parents' School holidays setting works</summary>
+    <p class="small muted">Parents can choose a <strong>School holidays</strong> setting for each Mac: no downtime, or their own times with no school hours. Macs with one switch to it from the end of school hours on the last school day until the night before school goes back, when their usual school-night downtime starts (or at midnight if there's none). Weekends next to a holiday count as part of it. Changing when school ends moves these start times too. Macs without one, and Macs with Lull older than @DeviceModel.HolidayVersion.ToString(3), are unaffected. The <code>DateExceptions</code> in a Mac's Jamf profile (such as an all-day device-free day) still apply on top.</p>
+</details>
+@if (holidays.Count > 0)
+{
+    <div class="table-wrap cards-on-phone" role="region" aria-label="School holidays" tabindex="0"><table>
+        <thead><tr><th scope="col">Holiday</th><th scope="col">Dates</th><th scope="col"><span class="sr-only">Remove</span></th></tr></thead>
+        <tbody>
+        @foreach (var h in holidays)
+        {
+            <tr>
+                <td class="card-title">@(h.Name ?? "School holiday") @if (Model.IsUnderWay(h)) { <span class="pill ok">Now</span> }</td>
+                <td data-label="Dates">@h.Dates</td>
+                <td>
+                    @* Macs' settings change with it, so a second step. *@
+                    <details class="confirm">
+                        <summary class="confirm-link">Remove</summary>
+                        <form method="post" asp-page-handler="RemoveHoliday" class="confirm-panel">
+                            <input type="hidden" name="first" value="@h.First.ToString("yyyy-MM-dd")">
+                            <span class="small">Remove @(h.Name ?? "this holiday")?</span>
+                            <button type="submit" class="danger">Yes, remove</button>
+                        </form>
+                    </details>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table></div>
+}
+<partial name="_Errors" model="Model.HolidayErrors" />
+<form method="post" asp-page-handler="AddHoliday" class="card">
+    <fieldset>
+        <legend>Add a school holiday</legend>
+        <label for="holidayName">Name (optional)</label>
+        <input type="text" id="holidayName" name="name" value="@Model.HolidayName" maxlength="@SettingsRules.MaxHolidayNameLength" placeholder="Term 4 holidays" class="narrow">
+        <div class="row mt-12">
+            <span>From</span> <input type="date" name="first" value="@Model.HolidayFirst" aria-label="From (first day)" aria-describedby="@(err)" aria-invalid="@(bad)" required>
+            <span>to</span> <input type="date" name="last" value="@Model.HolidayLast" aria-label="to (last day)" aria-describedby="@(err)" aria-invalid="@(bad)" required>
+            <span class="small muted">inclusive</span>
+        </div>
+    </fieldset>
+    <p><button type="submit">Add holiday</button></p>
+</form>

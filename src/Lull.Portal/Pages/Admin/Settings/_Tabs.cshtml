@@ -1,0 +1,19 @@
+@* The Settings sections, with the current one marked. The model is the page's path ("/Admin/Settings/Holidays"). *@
+@model string
+@{
+    var tabs = new (string Path, string Name)[]
+    {
+        ("/Admin/Settings", "School hours"),
+        ("/Admin/Settings/Holidays", "School holidays"),
+        ("/Admin/Settings/ParentControls", "Parent controls"),
+        ("/Admin/Settings/Branding", "Branding"),
+        ("/Admin/Settings/SignIn", "Sign-in"),
+    };
+}
+<h1>Settings</h1>
+<nav class="tabs" aria-label="Settings">
+    @foreach (var (path, name) in tabs)
+    {
+        <a href="@path" aria-current="@(path == Model ? "page" : null)">@name</a>
+    }
+</nav>

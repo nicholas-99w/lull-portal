@@ -1,0 +1,8 @@
+@model IReadOnlyList<FilterChip>
+@* The views of an admin list, each with how many it holds. Links, so they work without script and can be bookmarked. *@
+<nav class="filters" aria-label="Filter the list">
+    @foreach (var chip in Model)
+    {
+        <a href="@chip.Href" aria-current="@(chip.Current ? "true" : null)">@chip.Label <span class="filter-count">@chip.Count.ToString("N0")</span></a>
+    }
+</nav>

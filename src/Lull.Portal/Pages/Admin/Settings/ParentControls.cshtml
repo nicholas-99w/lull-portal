@@ -1,0 +1,27 @@
+@page
+@model ParentControlsModel
+@{
+    ViewData["Title"] = "Parent controls";
+    var err = Model.Errors.Count > 0 ? "errors" : null;
+    var bad = Model.Errors.Count > 0 ? "true" : null;
+    string H(int minutes) => (minutes / 60.0).ToString(System.Globalization.CultureInfo.InvariantCulture);
+}
+<partial name="_Tabs" model="@("/Admin/Settings/ParentControls")" />
+@if (Model.Notice is { } notice) { <div class="notice">@notice</div> }
+
+<p class="muted">What parents can do to their child's Mac from the portal, on top of changing its downtime. None of it reaches into <a href="/Admin/Settings">school hours</a>, except on <a href="/Admin/Settings/Holidays">school holidays</a>. IT isn't limited by these.</p>
+<partial name="_Errors" model="Model.Errors" />
+<form method="post" class="card">
+    <fieldset>
+        <legend>Lock down now</legend>
+        <label class="toggle">
+            <input type="checkbox" name="lockEnabled" value="true" @(Model.Policy.LockNow.Enabled ? "checked" : "")>
+            Parents can lock down their child's Mac on demand (outside school hours)
+        </label>
+        <div class="row mt-12">
+            <span>For at most</span> <input type="number" name="lockMaxHours" value="@H(Model.Policy.LockNow.MaxMinutes)" min="0.5" max="24" step="0.5" aria-label="For at most (hours)" aria-describedby="@(err)" aria-invalid="@(bad)" required> <span>hours</span>
+        </div>
+        <p class="small muted">Turning this off doesn't end lock-downs already under way: they last until the time the parent chose.</p>
+    </fieldset>
+    <button type="submit">Save</button>
+</form>

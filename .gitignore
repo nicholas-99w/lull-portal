@@ -1,0 +1,15 @@
+# macOS Finder metadata.
+.DS_Store
+# Per-user editor state (Visual Studio, Rider).
+.vs/
+.idea/
+*.user
+bin/
+obj/
+.env
+TestResults/
+# Database backups (compose "backup" service); keep them out of git.
+backups/
+
+# Device tokens of the load test's fake Macs (loadtest/LoadTest.cs).
+*.tokens.json

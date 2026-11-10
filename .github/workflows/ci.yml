@@ -1,0 +1,119 @@
+# The Lull portal: formatting, tests against a real Postgres, and a
+# deploy smoke test of the Docker image (migrate, start, health, headers).
+# Builds only: publish.yml pushes released images to the registry.
+# Actions are pinned to full commit SHAs (a tag can be moved to other code);
+# Dependabot updates them, keeping the version comments.
+name: Portal
+
+# Every push to any branch, including Dependabot's. No pull_request trigger:
+# a PR shows the result for its latest commit, and a second run would only
+# double the Actions minutes.
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portal-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # nothing here pushes: don't leave the token in .git/config
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: "10.0.x"
+      # Servers pull the image compose.yml names, so a release must name its own.
+      - name: Check compose.yml names the newest release's image
+        run: |
+          release=$(sed -nE 's/^## ([0-9]+\.[0-9]+\.[0-9]+) .*/\1/p' CHANGELOG.md | head -1)
+          named=$(sed -nE 's|^x-portal-image:.*/lull-portal:([^}"]+)}".*|\1|p' compose.yml)
+          echo "CHANGELOG.md: $release, compose.yml: $named"
+          if [ -z "$release" ] || [ "$release" != "$named" ]; then
+            echo "::error file=compose.yml::compose.yml's x-portal-image must name $release, the newest release in CHANGELOG.md"
+            exit 1
+          fi
+      - name: Check formatting
+        run: dotnet format Lull.Portal.slnx --verify-no-changes
+      # Known vulnerabilities (GitHub's advisory database, via NuGet) in any package, direct or
+      # transitive. Here rather than in the build, so a new advisory never stops a server deploying
+      # (perhaps the fix); Dependabot's PRs then bring the patched version.
+      - name: Check for vulnerable packages
+        run: |
+          dotnet restore Lull.Portal.slnx
+          report=$(dotnet list Lull.Portal.slnx package --vulnerable --include-transitive)
+          echo "$report"
+          if grep -q "has the following vulnerable packages" <<<"$report"; then
+            echo "::error::Vulnerable NuGet packages (above): update them."
+            exit 1
+          fi
+      # The same script as local runs: starts a throwaway postgres:17 container.
+      - name: Test
+        run: ./test.sh
+
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      POSTGRES_PASSWORD: ci-postgres-password
+      LULL_APP_DB_PASSWORD: ci-app-db-password
+      LULL_ENROLMENT_SECRET: ci-enrolment-secret-0123
+      LULL_PORTAL_IMAGE: lull-portal:ci # built here, never the published image
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # nothing here pushes: don't leave the token in .git/config
+      - name: Build and start (migrate, then portal)
+        run: docker compose up -d --build --wait
+      - name: Check the running portal
+        run: |
+          curl -fsS http://localhost:8080/healthz
+          headers=$(curl -fsSI http://localhost:8080/FirstRun)
+          echo "$headers"
+          grep -qi '^content-security-policy:' <<<"$headers"
+          grep -qi '^x-frame-options: DENY' <<<"$headers"
+          # The portal connects as lull_app (data only), not the owner.
+          docker compose exec -T db psql -U lull -d lull -tAc \
+            "SELECT DISTINCT usename FROM pg_stat_activity WHERE application_name <> 'psql' AND usename IS NOT NULL AND datname = 'lull'" \
+            | tee /dev/stderr | grep -qx lull_app
+      # The documented restore, end to end: a row deleted after the backup comes back.
+      - name: Back up and restore
+        run: |
+          sql() { docker compose exec -T db psql -U lull -d lull -tAc "$1"; }
+          sql "INSERT INTO audit_log (at, actor, action) VALUES (now(), 'ci', 'restore_check')"
+          curl -fsS -X POST http://localhost:8080/api/device/v1/register -H 'Content-Type: application/json' \
+            -d "{\"serialNumber\":\"C02RESTORE01\",\"hardwareUUID\":\"HW-RESTORE\",\"enrolmentSecret\":\"$LULL_ENROLMENT_SECRET\"}" > /dev/null
+          docker compose run --rm backup --now
+          sql "DELETE FROM audit_log WHERE action = 'restore_check'"
+          # A change after the backup, which the Mac takes: the restore must still give it a higher revision than that.
+          sql "UPDATE device_settings SET revision = revision + 1000"
+          cached=$(sql "SELECT max(revision) FROM device_settings")
+          docker compose stop portal
+          latest=$(ls -t backups | head -1)
+          docker compose run --rm backup --restore "/backups/$latest"
+          docker compose up -d --wait
+          test "$(sql "SELECT count(*) FROM audit_log WHERE action = 'restore_check'")" = 1
+          test "$(sql "SELECT count(*) FROM device_settings")" = 1
+          test "$(sql "SELECT count(*) FROM device_settings WHERE revision <= $cached")" = 0
+          test "$(sql "SELECT count(*) FROM audit_log WHERE action = 'restored_from_backup'")" = 1
+          curl -fsS http://localhost:8080/healthz
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: "10.0.x"
+      # A small run of the load test, so it keeps working as the API changes
+      # (exits 1 if any request fails). Real runs: see the top of loadtest/LoadTest.cs.
+      - name: Load test (200 Macs)
+        run: dotnet run loadtest/LoadTest.cs -- --macs 200 --rounds 2 --pause 1
+      - name: Logs
+        if: always()
+        run: docker compose logs --no-color
+      - name: Stop
+        if: always()
+        run: docker compose down -v

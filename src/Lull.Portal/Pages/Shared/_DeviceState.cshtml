@@ -1,0 +1,14 @@
+@model DeviceCard
+@* A Mac's status at a glance, on the parent's home page and at the top of its own: one plain answer
+   (is it usable now, and until when), and anything wrong with it. *@
+@{ var st = Model.Status; }
+<div class="state"><span class="dot @st.Tone" aria-hidden="true"></span><b>@st.State</b></div>
+<p class="state-next">@(st.NextChange ?? "Nothing scheduled")</p>
+@if (st.Stale && st.Tone != DeviceStatusView.QuietTone && st.Sync != SyncState.WaitingForFirstCheckIn)
+{
+    <p class="small attention state-note">Last seen @st.LastCheckIn. It may be off, asleep or offline.</p>
+}
+@if (st.Problem is { } problem)
+{
+    <p class="small text-bad state-note" role="alert">@problem</p>
+}

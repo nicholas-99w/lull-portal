@@ -1,0 +1,12 @@
+@model DeviceCard
+@* A Mac's page: its status (Shared/_DeviceState), then when it was last heard from. *@
+@{ var st = Model.Status; }
+<partial name="Shared/_DeviceState" model="Model" />
+@if (st.Sync == SyncState.WaitingForFirstCheckIn)
+{
+    <div class="meta"><span>Not heard from yet</span></div>
+}
+else if (!st.Stale)
+{
+    <div class="meta"><span>Last seen @st.LastCheckIn</span></div>
+}

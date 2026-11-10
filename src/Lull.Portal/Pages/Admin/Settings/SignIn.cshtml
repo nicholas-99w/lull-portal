@@ -1,0 +1,50 @@
+@page
+@model SignInModel
+@{
+    ViewData["Title"] = "Sign-in";
+    var s = Model.Settings;
+    var err = Model.Errors.Count > 0 ? "errors" : null;
+    var bad = Model.Errors.Count > 0 ? "true" : null;
+}
+<partial name="_Tabs" model="@("/Admin/Settings/SignIn")" />
+@if (Model.Notice is { } notice) { <div class="notice">@notice</div> }
+
+<p class="muted">Who can sign in, and how long the audit log is kept.
+    @(Model.Saved ? "Set here, so the server's .env values for these no longer apply." : "These are the server's .env values for now; once saved here, these apply instead.")</p>
+@if (!Model.IsOwner)
+{
+    <div class="notice warn">Only the portal owner can change these, since they decide who can get in.</div>
+}
+<partial name="_Errors" model="Model.Errors" />
+<form method="post" class="card">
+    <fieldset disabled="@(!Model.IsOwner)">
+        <fieldset>
+            <legend>Sign in with Microsoft</legend>
+            @if (!Model.EntraEnabled)
+            {
+                <p class="small muted mt-0">Not set up: see docs/entra-id.md in the portal’s repository. Until it is, everyone signs in with a password.</p>
+            }
+            <label class="toggle option">
+                <input type="checkbox" name="localSignIn" value="true" @(s.LocalSignIn ? "checked" : "") disabled="@(!Model.EntraEnabled)">
+                <span class="option-text"><span>Local accounts can sign in too</span>
+                    <span class="small muted">Accounts IT creates or imports, with a password. Off: Microsoft only, apart from you, the owner.</span></span>
+            </label>
+            <label class="toggle option">
+                <input type="checkbox" name="linkLocalAccounts" value="true" @(s.LinkLocalAccountsByEmail ? "checked" : "") disabled="@(!Model.EntraEnabled)">
+                <span class="option-text"><span>A first Microsoft sign-in takes over the local account with the same email</span>
+                    <span class="small muted">For moving existing accounts to Microsoft: they keep their history and students, and their password stops working. Off: such a sign-in is refused until IT deletes the local account. Never the owner's.</span></span>
+            </label>
+            <p class="small muted">Which app roles make someone an admin or a parent, and which claim lists their students, stay in the server's .env with the rest of the Microsoft set-up.</p>
+        </fieldset>
+        <fieldset>
+            <legend>Audit log</legend>
+            <div class="row">
+                <span>Keep entries for</span>
+                <input type="number" name="auditRetentionDays" value="@s.AuditRetentionDays" min="0" max="@AccountSettings.MaxAuditRetentionDays" step="1" aria-label="Keep entries for (days)" aria-describedby="@(err)" aria-invalid="@(bad)" required>
+                <span>days</span>
+            </div>
+            <p class="small muted">0 keeps them forever. Older entries are deleted once a day, so a shorter time takes effect within a day.</p>
+        </fieldset>
+        @if (Model.IsOwner) { <button type="submit">Save</button> }
+    </fieldset>
+</form>

@@ -1,0 +1,7 @@
+@model DeviceModel
+@* A Mac's page: how it is now. Also sent on its own while the page is open (_DeviceLive). *@
+    <partial name="Shared/_DeviceFacts" model="Model.Card" />
+    @if (Model.Status.TimeZone != DeviceStatusView.FallbackTimeZone)
+    {
+        <p class="small muted mb-0">Times are in this Mac's time zone (@Model.Status.TimeZone).</p>
+    }

@@ -1,0 +1,8 @@
+{
+  "revision": 1760000000003,
+  "enabled": false,
+  "schoolNights": { "start": "21:30", "end": "06:30" },
+  "weekend": { "start": "10:00", "end": "14:00" },
+  "lockFrom": "2026-10-17T02:00:00Z",
+  "lockUntil": "2026-10-17T04:00:00Z"
+}

@@ -1,0 +1,6 @@
+{
+  "enrolmentSecret": "example-enrolment-secret",
+  "hardwareUUID": "6B29FC40-CA47-1067-B31D-00DD010662DA",
+  "serialNumber": "C02EXAMPLE01",
+  "version": "0.2.0"
+}

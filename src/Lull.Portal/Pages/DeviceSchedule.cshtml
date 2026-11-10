@@ -1,0 +1,121 @@
+@page "/Device/{id:guid}/Schedule/{section:regex(^Holidays$)?}"
+@model DeviceScheduleModel
+@{
+    var student = Model.IsAdmin ? Model.Device.StudentNameAndUsername : Model.Device.StudentName;
+    var who = student ?? Model.Device.SerialNumber;
+    var heading = Model.IsHolidays ? "School holidays" : "School weeks";
+    ViewData["Title"] = $"{heading} · {who}";
+    var s = Model.Device.Settings;
+    string T(TimeOnly t) => Window.Format(t);
+    var hours = Model.Policy.SchoolHours;
+    string F(TimeOnly t) => Window.Friendly(t);
+}
+<a class="back" href="/Device/@Model.Device.Id">← @who</a>
+<h1>@heading</h1>
+<div class="card">
+    <partial name="_Errors" model="Model.Errors" />
+    <form method="post">
+        <input type="hidden" name="revision" value="@s.Revision">
+        @* Each page saves only what it shows (DeviceScheduleModel). *@
+        @if (Model.IsHolidays)
+        {
+            // Hour by hour keeps the simple choice beneath it, for going back.
+            var holidayChoice = Model.HolidayChoice;
+            var holidayShown = Model.ShownHoliday;
+            <p class="small muted mb-6">From the end of the last school day until the night before school goes back.
+                @if (Model.NextHoliday is { } next) { <span>@(Model.HolidayUnderWay ? "Now" : "Next"): @next.</span> }
+                else { <span>Your school hasn't set any holidays yet.</span> }</p>
+            @if (Model.HolidayUnsupported)
+            {
+                <p class="small text-bad">This Mac needs Lull @DeviceModel.HolidayVersion.ToString(3) or later for a holiday setting (it has @Model.Device.LastReport!.Version). Until it's updated, it keeps its usual settings through the holidays.</p>
+            }
+            @* Simple choices, or the advanced grid, as for school weeks: both are in the form, and CSS shows the one chosen. *@
+            <div class="segmented" role="radiogroup" aria-label="School holidays">
+                <label><input type="radio" name="holidayView" value="simple" @(s.HolidayWeek is null ? "checked" : "")> Simple</label>
+                <label><input type="radio" name="holidayView" value="advanced" @(s.HolidayWeek is not null ? "checked" : "")> Advanced</label>
+            </div>
+            <fieldset class="holiday-simple">
+                <legend class="sr-only">School holidays</legend>
+                <label class="toggle plain option">
+                    <input type="radio" name="holidayMode" value="school" @(holidayChoice == ScheduleMode.School ? "checked" : "")>
+                    <span class="option-text"><span>Same as during term</span><span class="small muted">Your school-week settings</span></span>
+                </label>
+                <label class="toggle plain option">
+                    <input type="radio" name="holidayMode" value="custom" @(holidayChoice == ScheduleMode.Custom ? "checked" : "")>
+                    <span class="option-text"><span>Set my own times</span><span class="small muted">Any hours: school hours don't apply in the holidays</span></span>
+                </label>
+                <div class="times">
+                    <span>From:</span> <input type="time" name="holidayStart" value="@T(holidayShown.Start)" aria-label="From">
+                    <span>To:</span> <input type="time" name="holidayEnd" value="@T(holidayShown.End)" aria-label="To">
+                </div>
+                <label class="toggle plain option">
+                    <input type="radio" name="holidayMode" value="off" @(holidayChoice == ScheduleMode.OptOut ? "checked" : "")>
+                    <span class="option-text"><span>No downtime</span></span>
+                </label>
+            </fieldset>
+            <fieldset class="holiday-advanced">
+                <legend class="sr-only">Hour by hour</legend>
+                <p class="small muted mb-6"><span class="for-mouse">Click an hour, or drag across several, to turn downtime on or off.</span><span class="for-touch">Tap an hour to turn downtime on or off.</span> Any hours: school hours don't apply in the holidays.
+                    @if (s.HolidayWeek is null) { <span>Filled in from your simple settings, to the nearest hour.</span> }</p>
+                @if (Model.AdvancedUnsupported)
+                {
+                    <p class="small text-bad">This Mac needs Lull @DeviceModel.AdvancedVersion.ToString(3) or later to set holidays hour by hour (it has @Model.Device.LastReport!.Version). Until it's updated, it uses the choice you made before.</p>
+                }
+                <partial name="Shared/_WeekGrid" model='new WeekGridView("holidayWeek", Model.HolidayGrid, null)' />
+            </fieldset>
+        }
+        else
+        {
+            @* Simple per-kind choices, or the advanced grid: both are in the form, and CSS shows the one chosen. *@
+            <div class="segmented" role="radiogroup" aria-label="School weeks">
+                <label><input type="radio" name="termView" value="simple" @(s.Week is null ? "checked" : "")> Simple</label>
+                <label><input type="radio" name="termView" value="advanced" @(s.Week is not null ? "checked" : "")> Advanced</label>
+            </div>
+            <div class="term-simple">
+            @foreach (var (kind, prefix, legend) in new[] { (WindowKind.SchoolNights, "school", "School nights · Sun–Thu"), (WindowKind.Weekend, "weekend", "Weekend · Fri–Sat") })
+            {
+                var mode = s.ModeFor(kind);
+                var shown = Model.Shown(kind);
+                // What parents' own times must keep clear of (SettingsRules.CheckForParent), shown before they try.
+                var customHint = Model.IsAdmin ? "Your own times"
+                    : kind == WindowKind.SchoolNights ? $"Must start after {F(hours.End)} and end by {F(hours.Start)}"
+                    : $"Can't overlap Friday's school hours ({F(hours.Start)} – {F(hours.End)})";
+                <fieldset>
+                    <legend>@legend</legend>
+                    <label class="toggle plain option">
+                        <input type="radio" name="@(prefix)Mode" value="school" @(mode == ScheduleMode.School ? "checked" : "")>
+                        <span class="option-text"><span>Follow the school</span><span class="small muted">@Model.SchoolText(kind)</span></span>
+                    </label>
+                    <label class="toggle plain option">
+                        <input type="radio" name="@(prefix)Mode" value="custom" @(mode == ScheduleMode.Custom ? "checked" : "")>
+                        <span class="option-text"><span>Set my own times</span><span class="small muted">@customHint</span></span>
+                    </label>
+                    <div class="times">
+                        <span>From:</span> <input type="time" name="@(prefix)Start" value="@T(shown.Start)" aria-label="From">
+                        <span>To:</span> <input type="time" name="@(prefix)End" value="@T(shown.End)" aria-label="To">
+                    </div>
+                    <label class="toggle plain option">
+                        <input type="radio" name="@(prefix)Mode" value="off" @(mode == ScheduleMode.OptOut ? "checked" : "")>
+                        <span class="option-text"><span>No downtime</span></span>
+                    </label>
+                </fieldset>
+            }
+            </div>
+            <fieldset class="term-advanced">
+                <legend class="sr-only">Hour by hour</legend>
+                @* A phone scrolls past the grid, so there it's one tap per hour; dragging is for a mouse (week-grid.js). *@
+                <p class="small muted mb-6"><span class="for-mouse">Click an hour, or drag across several, to turn downtime on or off.</span><span class="for-touch">Tap an hour to turn downtime on or off.</span> School hours (@hours) are never downtime.
+                    @if (s.Week is null) { <span>Filled in from your simple settings, to the nearest hour.</span> }</p>
+                @if (Model.AdvancedUnsupported)
+                {
+                    <p class="small text-bad">This Mac needs Lull @DeviceModel.AdvancedVersion.ToString(3) or later for an advanced schedule (it has @Model.Device.LastReport!.Version). Until it's updated, it keeps the simple settings.</p>
+                }
+                <partial name="Shared/_WeekGrid" model='new WeekGridView("week", Model.TermGrid, hours)' />
+            </fieldset>
+        }
+        @if (Model.IsAdmin && !Model.IsHolidays) { <p class="small muted">IT: school hours and the lock-down limit don't apply, except in an advanced schedule.</p> }
+        <div class="savebar"><button type="submit">Save schedule</button></div>
+    </form>
+</div>
+
+<script src="~/week-grid.js" asp-append-version="true" defer></script>
